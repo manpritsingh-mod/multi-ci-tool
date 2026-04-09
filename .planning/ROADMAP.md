@@ -11,7 +11,7 @@ Build a CI-agnostic Python SDK for Maven pipelines across 8 phases. Start with p
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Package Foundation** - Python package skeleton, core types, exceptions, CLI entry point
-- [ ] **Phase 2: CI Adapters** - CIAdapter ABC, Jenkins/GitHub/Local adapters, auto-detection
+- [x] **Phase 2: CI Adapters** - CIAdapter ABC, Jenkins/GitHub/Local adapters, auto-detection
 - [ ] **Phase 3: Command Execution Engine** - subprocess wrapper with streaming, timeout, retry, redaction
 - [ ] **Phase 4: Maven Backend** - BuildBackend ABC, Maven command generation, report path resolution
 - [ ] **Phase 5: Pipeline Orchestrator** - Stage sequencing, result aggregation, PipelineResult output
@@ -48,8 +48,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: CIAdapter ABC + detect.py + LocalAdapter
-- [ ] 02-02: JenkinsAdapter + GitHubAdapter with full env normalization
+- [x] 02-01: CIAdapter ABC + detect.py + LocalAdapter
+- [x] 02-02: JenkinsAdapter + GitHubAdapter with full env normalization
 
 ### Phase 3: Command Execution Engine
 **Goal**: Production-grade command runner with streaming, timeouts, retries, and secret redaction
@@ -149,7 +149,7 @@ Phases 1-4 can partially run in parallel (1 first, then 2/3/4 together). Phase 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Package Foundation | 2/2 | Completed | 2026-04-10 |
-| 2. CI Adapters | 0/2 | Not started | - |
+| 2. CI Adapters | 2/2 | Completed | 2026-04-10 |
 | 3. Command Execution Engine | 0/2 | Not started | - |
 | 4. Maven Backend | 0/1 | Not started | - |
 | 5. Pipeline Orchestrator | 0/2 | Not started | - |
