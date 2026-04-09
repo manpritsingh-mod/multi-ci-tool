@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         MCT_ENABLE_SMOKE = 'false'
-        // Add the local user bin directory to PATH so we can invoke pip and multi-ci-tools
-        PATH = "${env.WORKSPACE}/.local/bin:${env.HOME}/.local/bin:${env.PATH}"
     }
 
     stages {
@@ -14,32 +12,21 @@ pipeline {
             }
         }
         
-        stage('Setup Dependencies (No Docker)') {
+        stage('Test Pipeline with ShiningPanda') {
             steps {
-                echo "Installing PIP directly via Python bootstrap because Docker and apt-get root access are unavailable..."
-                // Download the official pip bootstrap script
-                sh 'curl -sS https://bootstrap.pypa.io/get-pip.py -o get-pip.py'
-                
-                // Install pip to the current Jenkins user's home directory
-                sh 'python3 get-pip.py --user'
-                
-                // Install our newly written SDK package locally
-                sh 'python3 -m pip install --user --upgrade pip'
-                sh 'python3 -m pip install --user -e .'
-            }
-        }
-
-        stage('Test CI Adapter Detection') {
-            steps {
-                echo 'Running inspect-env to verify JenkinsAdapter detects the CI context successfully'
-                sh 'python3 -m multi_ci_tools inspect-env'
-            }
-        }
-
-        stage('Test Pipeline Dry Run') {
-            steps {
-                echo 'Running dry-run to verify pipeline scaffolding'
-                sh 'python3 -m multi_ci_tools dry-run'
+                // You must configure a Python installation named "Python3" 
+                // in Manage Jenkins -> Global Tool Configuration.
+                withPythonEnv('Python3') {
+                    echo "Installing SDK..."
+                    sh 'python -m pip install --upgrade pip'
+                    sh 'pip install -e .'
+                    
+                    echo 'Running inspect-env to verify JenkinsAdapter...'
+                    sh 'python -m multi_ci_tools inspect-env'
+                    
+                    echo 'Running dry-run to verify pipeline scaffolding...'
+                    sh 'python -m multi_ci_tools dry-run'
+                }
             }
         }
     }
