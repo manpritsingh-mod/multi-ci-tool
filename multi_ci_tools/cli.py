@@ -180,9 +180,27 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"Stages planned: {', '.join(s.value for s in stages_planned)}")
     print()
 
-    # TODO: Phase 5 will implement PipelineOrchestrator here
-    print("Pipeline orchestrator not yet implemented.")
-    print("Run /gsd-plan-phase 5 to build it.")
+    from multi_ci_tools.adapters.detect import detect_ci_adapter
+    from multi_ci_tools.backends import MavenBackend
+    from multi_ci_tools.executor import CommandExecutor
+    from multi_ci_tools.orchestrator import PipelineOrchestrator
+
+    adapter = detect_ci_adapter()
+    # Mask minimal safe set of standard variables, could easily expand
+    executor = CommandExecutor(secrets=[config.smtp_password])
+    backend = MavenBackend()
+    
+    orchestrator = PipelineOrchestrator(adapter, backend, executor)
+    
+    print("Executing Pipeline Orchestrator...")
+    output_file = config.emit_json or "ci-result.json"
+    result = orchestrator.run_pipeline(config, output_file=output_file)
+
+    if not result.overall_success:
+        print("\n[!] Pipeline completed with errors.", file=sys.stderr)
+        return 1
+        
+    print("\n[+] Pipeline completed successfully.")
     return 0
 
 
@@ -213,30 +231,27 @@ def _cmd_dry_run(_args: argparse.Namespace) -> int:
 
 def _cmd_inspect_env(_args: argparse.Namespace) -> int:
     """Print detected CI environment."""
+    from multi_ci_tools.adapters.detect import detect_ci_adapter
+
     print(f"multi-ci-tools v{__version__} — environment inspection")
     print(f"{'='*50}")
     print()
 
-    # TODO: Phase 2 will implement adapter detection here
-    # For now, show raw env var detection
-    env = os.environ
+    adapter = detect_ci_adapter()
+    context = adapter.get_context()
 
-    if env.get("JENKINS_URL"):
-        print("Detected CI: Jenkins")
-        print(f"  JENKINS_URL:  {env.get('JENKINS_URL', 'not set')}")
-        print(f"  BUILD_NUMBER: {env.get('BUILD_NUMBER', 'not set')}")
-        print(f"  GIT_COMMIT:   {env.get('GIT_COMMIT', 'not set')}")
-        print(f"  GIT_BRANCH:   {env.get('GIT_BRANCH', 'not set')}")
-        print(f"  WORKSPACE:    {env.get('WORKSPACE', 'not set')}")
-    elif env.get("GITHUB_ACTIONS") == "true":
-        print("Detected CI: GitHub Actions")
-        print(f"  GITHUB_SHA:        {env.get('GITHUB_SHA', 'not set')}")
-        print(f"  GITHUB_REF_NAME:   {env.get('GITHUB_REF_NAME', 'not set')}")
-        print(f"  GITHUB_RUN_NUMBER: {env.get('GITHUB_RUN_NUMBER', 'not set')}")
-        print(f"  GITHUB_WORKSPACE:  {env.get('GITHUB_WORKSPACE', 'not set')}")
-    else:
-        print("Detected CI: Local (no CI environment detected)")
-        print(f"  Working directory: {os.getcwd()}")
+    print(f"Detected CI: {context.ci_name}")
+    print(f"  Branch:       {context.branch}")
+    print(f"  Commit SHA:   {context.commit_sha}")
+    print(f"  Build Number: {context.build_number}")
+    if context.build_url:
+        print(f"  Build URL:    {context.build_url}")
+    print(f"  Workspace:    {context.workspace}")
+    print(f"  Job Name:     {context.job_name}")
+    print(f"  Is PR:        {context.is_pull_request}")
+    if context.pr_number:
+        print(f"  PR Number:    {context.pr_number}")
+    print(f"  Capabilities: {', '.join(context.capabilities) if context.capabilities else 'None'}")
 
     print()
     return 0
