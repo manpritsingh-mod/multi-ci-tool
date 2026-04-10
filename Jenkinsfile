@@ -16,18 +16,12 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Checkout Multi-CI-Tools repo
+                // The main Jenkins job checks out the current repo (Java-Maven-Testing) automatically to root.
                 checkout scm
                 
-                // Checkout Maven test project in subdirectory
-                dir('java-maven-testing') {
-                    checkout(
-                        [$class: 'GitSCM',
-                         branches: [[name: '*/master']],
-                         userRemoteConfigs: [[url: 'https://github.com/manpritsingh-mod/Java-Maven-Testing.git']],
-                         changelog: false,
-                         poll: false]
-                    )
+                // Explicitly Checkout the Python SDK into a subdirectory
+                dir('multi-ci-tools') {
+                    git branch: 'main', url: 'https://github.com/manpritsingh-mod/multi-ci-tool.git'
                 }
             }
         }
@@ -43,11 +37,10 @@ pipeline {
                     echo "✓ Maven (checking system or mvnw):"
                     if which mvn > /dev/null 2>&1; then
                         mvn --version
-                    elif [ -x "target/java-maven-testing/.mvn/maven" ]; then
+                    elif [ -x ".mvn/maven" ]; then
                         echo "Found Maven wrapper"
                     else
                         echo "WARNING: Maven not in PATH - will attempt to use Maven wrapper from target project"
-                        # Don't exit here - Maven wrapper might be available in the target repo
                     fi
                     
                     echo ""
@@ -59,27 +52,26 @@ pipeline {
 
         stage('Install SDK') {
             steps {
-                sh '''
-                    python3 -m pip install --upgrade pip setuptools
-                    pip3 install -e .
-                '''
+                dir('multi-ci-tools') {
+                    sh '''
+                        python3 -m pip install --upgrade pip setuptools
+                        pip3 install -e .
+                    '''
+                }
             }
         }
 
         stage('Run Multi-CI-Tools Pipeline') {
             steps {
-                script {
-                    dir('java-maven-testing') {
-                        sh 'python3 -m multi_ci_tools run --emit-json ci-result.json --emit-summary ci-summary.md'
-                    }
-                }
+                // We are at the root, which is Java-Maven-Testing
+                sh 'python3 -m multi_ci_tools run --emit-json ci-result.json --emit-summary ci-summary.md'
             }
         }
 
         stage('Parse Results') {
             steps {
                 script {
-                    def resultJson = readFile(file: 'java-maven-testing/ci-result.json')
+                    def resultJson = readFile(file: 'ci-result.json')
                     def result = readJSON text: resultJson
 
                     echo "Pipeline overall status: ${result.overall}"
@@ -129,14 +121,14 @@ pipeline {
 
     post {
         always {
-            // Archive all result artifacts
-            archiveArtifacts artifacts: 'java-maven-testing/ci-result.json,java-maven-testing/ci-summary.md', allowEmptyArchive: true
+            // Archive all result artifacts from the root
+            archiveArtifacts artifacts: 'ci-result.json,ci-summary.md', allowEmptyArchive: true
             
             // Publish JUnit results from surefire reports
-            junit testResults: 'java-maven-testing/target/surefire-reports/*.xml', allowEmptyResults: true
+            junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
             
             // Archive checkstyle reports if present
-            archiveArtifacts artifacts: 'java-maven-testing/target/checkstyle-result.xml', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'target/checkstyle-result.xml', allowEmptyArchive: true
             
             echo "Pipeline execution complete."
         }
