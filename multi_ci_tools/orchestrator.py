@@ -48,7 +48,7 @@ class PipelineOrchestrator:
     def _create_stage_result(
         self,
         stage: StageType,
-        state: StageState,
+        status: StageStatus,
         start_time: float,
         error: Optional[str] = None,
         duration: Optional[float] = None,
@@ -56,10 +56,10 @@ class PipelineOrchestrator:
         if duration is None:
             duration = time.monotonic() - start_time
         return StageResult(
-            stage=stage,
-            state=state,
+            name=stage.value,
+            status=status,
             duration_seconds=duration,
-            error_message=error,
+            error_message=error or "",
         )
 
     def execute_stage(self, stage: StageType, config: RunConfig) -> StageResult:
@@ -67,8 +67,8 @@ class PipelineOrchestrator:
         start_time = time.monotonic()
         
         # Check skip logic
-        if config.skip_stages and stage in config.skip_stages:
-            return self._create_stage_result(stage, StageState.SKIPPED, start_time)
+        if config.stages_to_skip and stage.value in [s.value for s in config.stages_to_skip]:
+            return self._create_stage_result(stage, StageStatus.SKIP, start_time)
             
         stage_cmds = []
         if stage == StageType.BUILD:
@@ -78,14 +78,14 @@ class PipelineOrchestrator:
             stage_cmds.append(test_cmd)
         elif stage == StageType.SETUP:
             # We assume checkout happens externally via Git CI step
-            stage_cmds.append(["echo", "Running Environment Validation"])
+            stage_cmds.append(["python", "-c", "print('Running Environment Validation')"])
         elif stage == StageType.PUBLISH:
-            stage_cmds.append(["echo", "Publishing disabled in abstract"])
+            stage_cmds.append(["python", "-c", "print('Publishing disabled in abstract')"])
         elif stage == StageType.NOTIFY:
-            stage_cmds.append(["echo", "Notifications disabled in abstract"])
+            stage_cmds.append(["python", "-c", "print('Notifications disabled in abstract')"])
         else:
             return self._create_stage_result(
-                stage, StageState.FAILED, start_time, error=f"Unknown stage {stage.value}"
+                stage, StageStatus.FAIL, start_time, error=f"Unknown stage {stage.value}"
             )
 
         # Execute
@@ -95,18 +95,18 @@ class PipelineOrchestrator:
 
                 self.executor.run(cmd, timeout_seconds=1800)  # 30 minute timeout default
                 
-            return self._create_stage_result(stage, StageState.SUCCESS, start_time)
+            return self._create_stage_result(stage, StageStatus.PASS, start_time)
             
         except CommandError as e:
             logger.error(f"Stage {stage.value} failed: {e}")
             # Strict mode elevates failures
             return self._create_stage_result(
-                stage, StageState.FAILED, start_time, error=str(e), duration=e.duration
+                stage, StageStatus.FAIL, start_time, error=str(e), duration=e.duration
             )
         except Exception as e:
             logger.exception(f"Unexpected error in {stage.value}")
             return self._create_stage_result(
-                stage, StageState.FAILED, start_time, error=str(e)
+                stage, StageStatus.FAIL, start_time, error=str(e)
             )
 
     def run_pipeline(self, config: RunConfig, output_file: str = "ci-result.json") -> PipelineResult:
@@ -122,8 +122,8 @@ class PipelineOrchestrator:
             if not pipeline_success and stage not in (StageType.PUBLISH, StageType.NOTIFY):
                 logger.warning(f"Skipping {stage.value} due to previous failure.")
                 self.results[stage] = StageResult(
-                    stage=stage,
-                    state=StageState.SKIPPED,
+                    name=stage.value,
+                    status=StageStatus.SKIP,
                     duration_seconds=0.0,
                     error_message="Skipped due to prior failure."
                 )
@@ -131,10 +131,10 @@ class PipelineOrchestrator:
 
             try:
                 # Use native adapter log grouping
-                with self.adapter.group_log(f"Stage: {stage.value.title()}"):
+                with self.adapter.log_group(f"Stage: {stage.value.title()}"):
                     result = self.execute_stage(stage, config)
                     self.results[stage] = result
-                    if result.state == StageState.FAILED:
+                    if result.status == StageStatus.FAIL:
                         pipeline_success = False
             except Exception as e:
                 logger.error(f"Agent trapped critical failure: {e}")
