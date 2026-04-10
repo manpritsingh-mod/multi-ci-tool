@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         MCT_ENABLE_SMOKE = 'false'
+        JAVA_HOME = tool('jdk-17')
     }
 
     tools {
