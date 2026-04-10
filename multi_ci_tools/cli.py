@@ -169,7 +169,15 @@ def _resolve_config_from_env(args: argparse.Namespace) -> RunConfig:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    """Execute the pipeline."""
+    """
+    Run the CI pipeline using the provided CLI arguments.
+    
+    Parameters:
+        args (argparse.Namespace): Parsed command-line arguments for the `run` command.
+    
+    Returns:
+        int: `0` if the pipeline completed with overall PASS, `1` if the pipeline completed with any non-PASS status.
+    """
     config = _resolve_config_from_env(args)
     print(f"multi-ci-tools v{__version__}")
     print(f"Config: strict={config.strict}, lint={config.enable_lint}, smoke={config.enable_smoke}")

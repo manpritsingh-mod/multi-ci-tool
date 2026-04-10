@@ -36,13 +36,14 @@ class JUnitParser:
     """Parse JUnit test reports from Maven surefire."""
 
     def parse(self, surefire_dir: str) -> TestSummary:
-        """Parse test results from surefire reports directory.
-
-        Args:
-            surefire_dir: Path to target/surefire-reports directory
-
+        """
+        Aggregate JUnit-style test case results from all XML files in a surefire reports directory.
+        
+        Parameters:
+            surefire_dir (str): Path to the Maven Surefire reports directory (e.g., target/surefire-reports).
+        
         Returns:
-            TestSummary with aggregated test counts across all XML files
+            TestSummary: Aggregated counts where `total` is the number of testcases processed and `passed`, `failed`, and `skipped` are the respective counts.
         """
         total = 0
         passed = 0

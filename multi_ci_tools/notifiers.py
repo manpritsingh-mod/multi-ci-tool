@@ -37,14 +37,14 @@ class Notifier(ABC):
 
     @abstractmethod
     def notify(self, result: PipelineResult) -> None:
-        """Send notification about pipeline result.
-
-        Args:
-            result: The completed pipeline result to notify about.
-
-        Note:
-            Implementations must catch and log all errors;
-            never raise exceptions from notify().
+        """
+        Notify configured destinations with a summary of a completed PipelineResult.
+        
+        Parameters:
+            result (PipelineResult): The completed pipeline result to summarize and deliver.
+        
+        Notes:
+            Implementations must catch and log all exceptions and must not allow exceptions to propagate from `notify`.
         """
         pass
 
@@ -56,7 +56,14 @@ class ConsoleNotifier(Notifier):
     """
 
     def notify(self, result: PipelineResult) -> None:
-        """Print markdown summary to console."""
+        """
+        Send the pipeline result summary to standard output.
+        
+        Prints the result's markdown summary to stdout. Exceptions raised while generating or printing the summary are caught and logged.
+        
+        Parameters:
+            result (PipelineResult): Pipeline result whose markdown summary will be printed.
+        """
         try:
             logger.info("Sending notification via console")
             summary = result.to_summary_md()
@@ -72,20 +79,27 @@ class SlackNotifier(Notifier):
     """
 
     def __init__(self, webhook_url: str) -> None:
-        """Initialize with Slack webhook URL.
-
-        Args:
-            webhook_url: Slack incoming webhook URL
-
+        """
+        Create a Slack notifier configured with the given incoming webhook URL.
+        
+        Parameters:
+            webhook_url (str): Slack incoming webhook URL to which notifications will be posted.
+        
         Raises:
-            ValueError: If webhook_url is empty
+            ValueError: If `webhook_url` is empty.
         """
         if not webhook_url:
             raise ValueError("Slack webhook URL is required")
         self.webhook_url = webhook_url
 
     def notify(self, result: PipelineResult) -> None:
-        """POST markdown summary to Slack webhook."""
+        """
+        Send the pipeline result summary to the configured Slack incoming webhook.
+        
+        Builds a Slack message containing the markdown summary from `result.to_summary_md()` and posts it to the notifier's webhook URL. All delivery errors (network, encoding, timeouts, and other exceptions) are caught and logged; this method does not raise.
+        Parameters:
+            result (PipelineResult): The pipeline result whose summary will be delivered to Slack.
+        """
         try:
             logger.info("Sending notification via Slack")
             summary = result.to_summary_md()
@@ -146,17 +160,18 @@ class EmailNotifier(Notifier):
         smtp_password: str,
         email_to: str,
     ) -> None:
-        """Initialize with SMTP configuration.
-
-        Args:
-            smtp_host: SMTP server hostname
-            smtp_port: SMTP server port (587 for STARTTLS, 465 for SSL, 25 for plain)
-            smtp_user: SMTP username for authentication
-            smtp_password: SMTP password for authentication
-            email_to: Recipient email address (comma-separated for multiple)
-
+        """
+        Initialize the EmailNotifier with SMTP connection and recipient settings.
+        
+        Parameters:
+            smtp_host: SMTP server hostname.
+            smtp_port: SMTP server port (commonly 587 for STARTTLS, 465 for SSL, 25 for plain).
+            smtp_user: SMTP username to use for authentication (may be empty for anonymous).
+            smtp_password: Password for smtp_user (may be empty if not required).
+            email_to: Recipient email address or comma-separated list of addresses.
+        
         Raises:
-            ValueError: If required parameters are missing
+            ValueError: If `smtp_host` or `email_to` is missing.
         """
         if not all([smtp_host, email_to]):
             raise ValueError("SMTP_HOST and EMAIL_TO are required")
@@ -167,7 +182,14 @@ class EmailNotifier(Notifier):
         self.email_to = email_to
 
     def notify(self, result: PipelineResult) -> None:
-        """Send markdown summary as email."""
+        """
+        Send the pipeline result summary to the configured SMTP recipients.
+        
+        Constructs a multipart plain-text email whose subject includes the CI job name and the overall status, and sends it via the configured SMTP host/port (10s timeout). Uses STARTTLS when the SMTP port is 587 and performs SMTP login when username and password are provided. Errors are caught and logged; the method does not raise exceptions.
+        
+        Parameters:
+            result (PipelineResult): The pipeline result used to generate the markdown summary and to populate the email subject and body.
+        """
         try:
             logger.info("Sending notification via email")
             summary = result.to_summary_md()
@@ -215,14 +237,13 @@ class EmailNotifier(Notifier):
 
 
 def create_notifiers_from_env() -> list[Notifier]:
-    """Create notifiers based on environment variables.
-
-    Console notifier is always created.
-    Slack notifier is created if MCT_SLACK_WEBHOOK_URL is set.
-    Email notifier is created if MCT_SMTP_HOST and MCT_EMAIL_TO are set.
-
+    """
+    Assemble enabled Notifier instances from environment variables.
+    
+    Reads environment variables to conditionally enable Slack and Email notifiers while always including a ConsoleNotifier. Enables SlackNotifier when MCT_SLACK_WEBHOOK_URL is set and has the expected Slack webhook prefix. Enables EmailNotifier when MCT_SMTP_HOST and MCT_EMAIL_TO are set; MCT_SMTP_PORT, MCT_SMTP_USER, and MCT_SMTP_PASSWORD are used if present. Misconfiguration or initialization errors are logged and cause the corresponding notifier to be skipped.
+    
     Returns:
-        List of enabled notifiers, always including ConsoleNotifier
+        list[Notifier]: Enabled notifiers; always includes a ConsoleNotifier.
     """
     notifiers: list[Notifier] = [ConsoleNotifier()]
     logger.info("Console notifier enabled (always-on)")
