@@ -178,7 +178,19 @@ class PipelineResult:
         return json.dumps(self.to_dict(), indent=indent)
 
     def to_dict(self) -> dict[str, object]:
-        """Convert to JSON-serializable dictionary."""
+        """
+        Build a JSON-serializable mapping representing this PipelineResult.
+        
+        Returns:
+            dict[str, object]: A dictionary containing:
+                - "overall": stage status as a string value,
+                - "stages": list of stage dictionaries (each from StageResult.to_dict()),
+                - "ci_context": CI context as a dictionary,
+                - "duration_seconds": total duration rounded to 2 decimals,
+                - "timestamp": ISO 8601 timestamp string,
+                - "test_summary" (optional): object with keys "total", "passed", "failed", "skipped" when test_summary is present,
+                - "lint_summary" (optional): object with keys "total_violations", "errors", "warnings", "infos" when lint_summary is present.
+        """
         result_dict = {
             "overall": self.overall.value,
             "stages": [s.to_dict() for s in self.stages],
@@ -207,7 +219,17 @@ class PipelineResult:
         return result_dict
 
     def to_summary_md(self) -> str:
-        """Generate human-readable markdown summary."""
+        """
+        Generate a markdown-formatted build summary for the pipeline result.
+        
+        Returns:
+            md (str): A markdown string containing:
+                - A header with the CI job name and an overall status badge.
+                - A "CI Context" section with platform, branch, short commit SHA, and build number.
+                - A "Stage Results" table listing each stage's name, emoji status, duration, and details.
+                - An optional "Test & Lint Summary" section (included when test or lint summaries are present) showing test counts and passed percentage and lint violation counts.
+                - Total duration and timestamp.
+        """
         lines: list[str] = []
         lines.append(f"# Build Summary — {self.ci_context.job_name}")
         lines.append("")

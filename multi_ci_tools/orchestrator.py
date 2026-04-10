@@ -63,7 +63,21 @@ class PipelineOrchestrator:
         )
 
     def execute_stage(self, stage: StageType, config: RunConfig) -> StageResult:
-        """Execute a single pipeline stage."""
+        """
+        Run the specified pipeline stage and return its result.
+        
+        Parameters:
+            stage (StageType): The pipeline stage to execute.
+            config (RunConfig): Run configuration; if `config.skip_stages` contains `stage`, the stage is marked as skipped.
+        
+        Returns:
+            StageResult: The outcome of the stage, including `state`, `duration_seconds`, and optional `error_message`.
+            
+        Notes:
+            - Commands are chosen per stage and executed via the configured executor.
+            - If a CommandError is raised, the result is `FAILED` and will include the exception message and, when available, the exception's duration.
+            - Any other exception results in a `FAILED` result with the exception message.
+        """
         start_time = time.monotonic()
         
         # Check skip logic
@@ -110,7 +124,17 @@ class PipelineOrchestrator:
             )
 
     def run_pipeline(self, config: RunConfig, output_file: str = "ci-result.json") -> PipelineResult:
-        """Execute the entire pipeline sequence."""
+        """
+        Run the CI pipeline stages in order, aggregate per-stage outcomes, parse test and lint reports, write a JSON results file, and dispatch notifications.
+        
+        Parameters:
+            config (RunConfig): Pipeline execution settings (e.g., workspace, skip_stages, timeouts).
+            output_file (str): Path to write the pipeline JSON result (defaults to "ci-result.json").
+        
+        Returns:
+            PipelineResult: Aggregated pipeline result containing CI context, stage results, overall status,
+            total duration in seconds, and optional `test_summary` and `lint_summary` if parsing succeeded.
+        """
         pipeline_start = time.monotonic()
         pipeline_success = True
         
