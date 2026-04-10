@@ -57,6 +57,26 @@ class StageType(str, Enum):
 
 
 @dataclass(frozen=True)
+class TestSummary:
+    """Summary of test execution results."""
+
+    total: int
+    passed: int
+    failed: int
+    skipped: int
+
+
+@dataclass(frozen=True)
+class LintSummary:
+    """Summary of lint/code quality violations."""
+
+    total_violations: int
+    errors: int
+    warnings: int
+    infos: int
+
+
+@dataclass(frozen=True)
 class CIContext:
     """Normalized CI context — the adapter's output contract.
 
@@ -147,6 +167,8 @@ class PipelineResult:
     stages: list[StageResult]
     ci_context: CIContext
     duration_seconds: float
+    test_summary: TestSummary | None = None
+    lint_summary: LintSummary | None = None
     timestamp: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -157,13 +179,32 @@ class PipelineResult:
 
     def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dictionary."""
-        return {
+        result_dict = {
             "overall": self.overall.value,
             "stages": [s.to_dict() for s in self.stages],
             "ci_context": self.ci_context.to_dict(),
             "duration_seconds": round(self.duration_seconds, 2),
             "timestamp": self.timestamp,
         }
+
+        # Include test and lint summaries if available
+        if self.test_summary is not None:
+            result_dict["test_summary"] = {
+                "total": self.test_summary.total,
+                "passed": self.test_summary.passed,
+                "failed": self.test_summary.failed,
+                "skipped": self.test_summary.skipped,
+            }
+
+        if self.lint_summary is not None:
+            result_dict["lint_summary"] = {
+                "total_violations": self.lint_summary.total_violations,
+                "errors": self.lint_summary.errors,
+                "warnings": self.lint_summary.warnings,
+                "infos": self.lint_summary.infos,
+            }
+
+        return result_dict
 
     def to_summary_md(self) -> str:
         """Generate human-readable markdown summary."""
@@ -196,6 +237,33 @@ class PipelineResult:
             detail = stage.error_message or "—"
             lines.append(f"| {stage.name} | {emoji} {stage.status.value} | {dur} | {detail} |")
         lines.append("")
+
+        # Test & Lint Summary
+        if self.test_summary is not None or self.lint_summary is not None:
+            lines.append("## Test & Lint Summary")
+            lines.append("")
+
+            if self.test_summary is not None:
+                passed_pct = (
+                    (self.test_summary.passed / self.test_summary.total * 100)
+                    if self.test_summary.total > 0
+                    else 0
+                )
+                lines.append(
+                    f"- **Tests:** {self.test_summary.passed}/{self.test_summary.total} passed "
+                    f"({passed_pct:.0f}%)"
+                )
+                lines.append(f"  - ✅ Passed: {self.test_summary.passed}")
+                lines.append(f"  - ❌ Failed: {self.test_summary.failed}")
+                lines.append(f"  - ⏭️ Skipped: {self.test_summary.skipped}")
+                lines.append("")
+
+            if self.lint_summary is not None:
+                lines.append(f"- **Lint Violations:** {self.lint_summary.total_violations}")
+                lines.append(f"  - 🛑 Errors: {self.lint_summary.errors}")
+                lines.append(f"  - ⚠️ Warnings: {self.lint_summary.warnings}")
+                lines.append(f"  - ℹ️ Infos: {self.lint_summary.infos}")
+                lines.append("")
 
         # Timing
         lines.append(f"**Total Duration:** {self.duration_seconds:.1f}s")
