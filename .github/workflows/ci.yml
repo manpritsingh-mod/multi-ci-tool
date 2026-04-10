@@ -20,6 +20,7 @@ jobs:
       - name: Checkout Multi-CI-Tools
         uses: actions/checkout@v4
         with:
+          repository: manpritsingh-mod/multi-ci-tool
           path: multi-ci-tools
         
       - name: Checkout Maven Testing Project
