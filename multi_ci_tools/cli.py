@@ -15,7 +15,7 @@ import sys
 from typing import Sequence
 
 from multi_ci_tools import __version__
-from multi_ci_tools.types import RunConfig, StageName
+from multi_ci_tools.types import RunConfig, StageName, StageStatus
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -196,7 +196,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     output_file = config.emit_json or "ci-result.json"
     result = orchestrator.run_pipeline(config, output_file=output_file)
 
-    if not result.overall_success:
+    if result.overall != StageStatus.PASS:
         print("\n[!] Pipeline completed with errors.", file=sys.stderr)
         return 1
         
