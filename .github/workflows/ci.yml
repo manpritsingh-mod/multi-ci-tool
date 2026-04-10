@@ -8,27 +8,128 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-adapters:
+  test-matrix:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: ['11', '17', '21']
+        python-version: ['3.10', '3.11', '3.12']
+      fail-fast: false
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          python-version: "3.10"
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
           
       - name: Install SDK
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools
           pip install -e .
           
-      - name: Test inspect-env (Adapter Detection)
+      - name: Run Multi-CI-Tools Pipeline
+        if: success() || failure()
+        continue-on-error: true
         run: |
-          python -m multi_ci_tools inspect-env
+          python -m multi_ci_tools run \
+            --emit-json ci-result.json \
+            --emit-summary ci-summary.md
           
-      - name: Test dry-run
+      - name: Generate Step Summary
+        if: always()
         run: |
-          python -m multi_ci_tools dry-run
+          python << 'EOF'
+          import json
+          import os
+          
+          try:
+              with open('ci-result.json') as f:
+                  result = json.load(f)
+          except Exception as e:
+              print(f"Error reading ci-result.json: {e}", file=__import__('sys').stderr)
+              exit(1)
+          
+          # Build markdown summary
+          summary = f"""## Multi-CI-Tools Pipeline Result
+          
+          **Matrix Configuration:**
+          - Java: ${{ matrix.java-version }}
+          - Python: ${{ matrix.python-version }}
+          
+          **Overall Status:** `{result['overall'].upper()}`
+          
+          **Duration:** {result['duration_seconds']:.1f}s
+          
+          ### Stages
+          """
+          
+          for stage in result['stages']:
+              summary += f"\n- **{stage['name']}:** {stage['status'].upper()} ({stage['duration_seconds']:.1f}s)"
+              if stage['error_message']:
+                  summary += f"\n  - Error: {stage['error_message']}"
+          
+          if result.get('test_summary'):
+              test = result['test_summary']
+              total = test['total'] or 1
+              pass_pct = (test['passed'] / total * 100) if total > 0 else 0
+              summary += f"""
+          ### Tests
+          - **Passed:** {test['passed']}/{test['total']} ({pass_pct:.0f}%)
+          - **Failed:** {test['failed']}
+          - **Skipped:** {test['skipped']}
+          """
+          
+          if result.get('lint_summary'):
+              lint = result['lint_summary']
+              summary += f"""
+          ### Lint Violations
+          - **Total:** {lint['total_violations']}
+          - **Errors:** {lint['errors']}
+          - **Warnings:** {lint['warnings']}
+          - **Infos:** {lint['infos']}
+          """
+          
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write(summary)
+          EOF
+          
+      - name: Determine Build Status
+        if: always()
+        run: |
+          python << 'EOF'
+          import json
+          import sys
+          
+          with open('ci-result.json') as f:
+              result = json.load(f)
+          
+          if result['overall'] == 'fail':
+              print("::error::Build FAILED")
+              sys.exit(1)
+          elif result['overall'] == 'warn':
+              print("::warning::Build completed with warnings")
+          elif result['overall'] == 'pass':
+              print("::notice::Build PASSED")
+          EOF
+          
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts-java${{ matrix.java-version }}-py${{ matrix.python-version }}
+          path: |
+            ci-result.json
+            ci-summary.md
+            target/surefire-reports/*.xml
+            target/checkstyle-result.xml
+          retention-days: 30
+          if-no-files-found: ignore
