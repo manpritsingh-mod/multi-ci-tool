@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-21'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         MCT_ENABLE_SMOKE = 'false'
@@ -20,9 +15,13 @@ pipeline {
         stage('Preflight Checks') {
             steps {
                 sh '''
-                    python3 --version
-                    mvn --version
+                    echo "Checking prerequisites..."
+                    which java || (echo "Java not found"; exit 1)
                     java -version
+                    which mvn || (echo "Maven not found"; exit 1)
+                    mvn --version
+                    which python3 || (echo "Python3 not found"; exit 1)
+                    python3 --version
                 '''
             }
         }
@@ -53,14 +52,18 @@ pipeline {
                     echo "Pipeline overall status: ${result.overall}"
                     
                     // Map overall status to Jenkins build state
-                    if (result.overall == 'pass') {
+                    if (result.overall == 'pass' || result.overall == 'PASS') {
                         echo "✅ Build PASSED"
-                    } else if (result.overall == 'warn') {
+                        currentBuild.result = 'SUCCESS'
+                    } else if (result.overall == 'warn' || result.overall == 'WARN') {
                         echo "⚠️ Build completed with WARNINGS"
                         unstable('Build completed with warnings')
-                    } else if (result.overall == 'fail') {
+                    } else if (result.overall == 'fail' || result.overall == 'FAIL') {
                         echo "❌ Build FAILED"
                         currentBuild.result = 'FAILURE'
+                    } else {
+                        echo "⚠️ Unknown status: ${result.overall}"
+                        unstable('Unknown build status')
                     }
 
                     // Print stage details
