@@ -5,6 +5,13 @@ pipeline {
         MCT_ENABLE_SMOKE = 'false'
     }
 
+    tools {
+        jdk 'jdk-17'
+        maven 'mvn-3.9'
+        "jenkins.plugins.shiningpanda.tools.PythonInstallation" 'python-3.10'
+    }
+
+
     stages {
         stage('Checkout') {
             steps {
