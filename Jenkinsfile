@@ -9,9 +9,6 @@ pipeline {
     tools {
         // jdk 'jdk-17'
         maven 'mvn-3.9'
-    tools {
-        maven 'mvn-3.9'
-    }
 
     stages {
         stage('Checkout') {
@@ -77,48 +74,28 @@ pipeline {
         stage('Parse Results') {
             steps {
                 script {
-                    def resultJson = readFile(file: 'ci-result.json')
-                    def result = readJSON text: resultJson
+                    // Use Python to safely extract the 'overall' status without relying on Pipeline Utility Steps plugin
+                    def status = sh(script: '''
+                        export PATH="$HOME/.local/bin:$PATH"
+                        . .venv/bin/activate
+                        python -c "import json, sys; sys.stdout.write(json.load(open('ci-result.json'))['overall'].upper())"
+                    ''', returnStdout: true).trim()
 
-                    echo "Pipeline overall status: ${result.overall}"
+                    echo "Pipeline overall status evaluated: ${status}"
                     
-                    // Map overall status to Jenkins build state
-                    if (result.overall == 'pass' || result.overall == 'PASS') {
+                    // Map SDK overall status to Jenkins build state
+                    if (status == 'PASS') {
                         echo "✅ Build PASSED"
                         currentBuild.result = 'SUCCESS'
-                    } else if (result.overall == 'warn' || result.overall == 'WARN') {
+                    } else if (status == 'WARN') {
                         echo "⚠️ Build completed with WARNINGS"
                         unstable('Build completed with warnings')
-                    } else if (result.overall == 'fail' || result.overall == 'FAIL') {
+                    } else if (status == 'FAIL') {
                         echo "❌ Build FAILED"
                         currentBuild.result = 'FAILURE'
                     } else {
-                        echo "⚠️ Unknown status: ${result.overall}"
+                        echo "⚠️ Unknown status: ${status}"
                         unstable('Unknown build status')
-                    }
-
-                    // Print stage details
-                    echo "\n=== Stage Results ==="
-                    result.stages.each { stage ->
-                        echo "${stage.name}: ${stage.status} (${stage.duration_seconds}s)"
-                    }
-
-                    // Print test summary if available
-                    if (result.test_summary) {
-                        echo "\n=== Test Summary ==="
-                        echo "Total: ${result.test_summary.total}"
-                        echo "Passed: ${result.test_summary.passed}"
-                        echo "Failed: ${result.test_summary.failed}"
-                        echo "Skipped: ${result.test_summary.skipped}"
-                    }
-
-                    // Print lint summary if available
-                    if (result.lint_summary) {
-                        echo "\n=== Lint Summary ==="
-                        echo "Total Violations: ${result.lint_summary.total_violations}"
-                        echo "Errors: ${result.lint_summary.errors}"
-                        echo "Warnings: ${result.lint_summary.warnings}"
-                        echo "Infos: ${result.lint_summary.infos}"
                     }
                 }
             }
