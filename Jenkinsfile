@@ -3,15 +3,15 @@ pipeline {
 
     environment {
         MCT_ENABLE_SMOKE = 'false'
-        JAVA_HOME = tool('jdk-17')
+        JAVA_HOME = '/opt/java/openjdk'  
     }
 
     tools {
-        jdk 'jdk-17'
+        // jdk 'jdk-17'
         maven 'mvn-3.9'
-        "jenkins.plugins.shiningpanda.tools.PythonInstallation" 'python-3.10'
+    tools {
+        maven 'mvn-3.9'
     }
-
 
     stages {
         stage('Checkout') {
@@ -42,29 +42,35 @@ pipeline {
                     else
                         echo "WARNING: Maven not in PATH - will attempt to use Maven wrapper from target project"
                     fi
-                    
-                    echo ""
-                    echo "✓ Python:"
-                    which python && python --version || (echo "ERROR: Python not found"; exit 1)
                 '''
             }
         }
 
-        stage('Install SDK') {
+        stage('Install Python & SDK') {
             steps {
-                dir('multi-ci-tools') {
-                    sh '''
-                        python -m pip install --upgrade pip setuptools
-                        python -m pip install -e .
-                    '''
-                }
+                sh '''
+                    echo "Installing Astral uv (Python manager)..."
+                    curl -LsSf https://astral.sh/uv/install.sh | sh
+                    export PATH="$HOME/.local/bin:$PATH"
+                    
+                    echo "Bootstrapping Python 3.10 user-space environment..."
+                    uv venv .venv --python 3.10
+                    
+                    echo "Installing SDK..."
+                    . .venv/bin/activate
+                    uv pip install -e ./multi-ci-tools
+                '''
             }
         }
 
         stage('Run Multi-CI-Tools Pipeline') {
             steps {
                 // We are at the root, which is Java-Maven-Testing
-                sh 'python -m multi_ci_tools run --emit-json ci-result.json --emit-summary ci-summary.md'
+                sh '''
+                    export PATH="$HOME/.local/bin:$PATH"
+                    . .venv/bin/activate
+                    python -m multi_ci_tools run --emit-json ci-result.json --emit-summary ci-summary.md
+                '''
             }
         }
 
