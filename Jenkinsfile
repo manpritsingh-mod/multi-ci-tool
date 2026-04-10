@@ -45,7 +45,7 @@ pipeline {
                     
                     echo ""
                     echo "✓ Python:"
-                    which python3 && python3 --version || (echo "ERROR: Python3 not found"; exit 1)
+                    which python && python --version || (echo "ERROR: Python not found"; exit 1)
                 '''
             }
         }
@@ -54,8 +54,8 @@ pipeline {
             steps {
                 dir('multi-ci-tools') {
                     sh '''
-                        python3 -m pip install --upgrade pip setuptools
-                        pip3 install -e .
+                        python -m pip install --upgrade pip setuptools
+                        python -m pip install -e .
                     '''
                 }
             }
@@ -64,7 +64,7 @@ pipeline {
         stage('Run Multi-CI-Tools Pipeline') {
             steps {
                 // We are at the root, which is Java-Maven-Testing
-                sh 'python3 -m multi_ci_tools run --emit-json ci-result.json --emit-summary ci-summary.md'
+                sh 'python -m multi_ci_tools run --emit-json ci-result.json --emit-summary ci-summary.md'
             }
         }
 
