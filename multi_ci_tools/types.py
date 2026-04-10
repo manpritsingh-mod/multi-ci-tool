@@ -38,6 +38,24 @@ class StageName(str, Enum):
     NOTIFY = "notify"
 
 
+class StageState(str, Enum):
+    """Execution state of a pipeline stage."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class StageType(str, Enum):
+    """Types of pipeline stages."""
+
+    SETUP = "setup"
+    BUILD = "build"
+    TEST = "test"
+    PUBLISH = "publish"
+    NOTIFY = "notify"
+
+
 @dataclass(frozen=True)
 class CIContext:
     """Normalized CI context — the adapter's output contract.

@@ -1,6 +1,5 @@
 """Pipeline Orchestrator."""
 
-import json
 import logging
 import os
 import time
@@ -14,6 +13,7 @@ from multi_ci_tools.types import (
     PipelineResult,
     RunConfig,
     StageResult,
+    StageStatus,
     StageState,
     StageType,
 )
@@ -90,9 +90,7 @@ class PipelineOrchestrator:
         try:
             for cmd in stage_cmds:
                 logger.info(f"Executing {stage.value}: {' '.join(cmd)}")
-                # Quick echo fix for cross-platform mocking in tests
-                if cmd[0] == "echo":
-                     cmd = ["python", "-c", f"print('{cmd[1]}')"]
+
                 self.executor.run(cmd, timeout_seconds=1800)  # 30 minute timeout default
                 
             return self._create_stage_result(stage, StageState.SUCCESS, start_time)
@@ -115,7 +113,7 @@ class PipelineOrchestrator:
         pipeline_success = True
         
         context = self.adapter.get_context()
-        logger.info(f"Starting pipeline on {context.ci_provider.value} for branch {context.branch}")
+        logger.info(f"Starting pipeline on {context.ci_name} for branch {context.branch}")
 
         for stage in self.STAGE_ORDER:
             # If a previous stage failed, skip non-essential stages
@@ -143,15 +141,15 @@ class PipelineOrchestrator:
         duration = time.monotonic() - pipeline_start
         
         result_payload = PipelineResult(
-            context=context,
+            ci_context=context,
             stages=list(self.results.values()),
-            overall_success=pipeline_success,
+            overall=StageStatus.PASS if pipeline_success else StageStatus.FAIL,
             duration_seconds=duration,
         )
 
         try:
             with open(output_file, "w", encoding="utf-8") as f:
-                f.write(result_payload.model_dump_json(indent=2))
+                f.write(result_payload.to_json())
             logger.info(f"Pipeline results written to {output_file}")
         except Exception as e:
             logger.error(f"Failed to write results: {e}")
