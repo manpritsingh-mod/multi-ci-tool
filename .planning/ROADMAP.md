@@ -16,7 +16,7 @@ Build a CI-agnostic Python SDK for Maven pipelines across 8 phases. Start with p
 - [x] **Phase 4: Maven Backend** - BuildBackend ABC, Maven command generation, report path resolution
 - [x] **Phase 5: Pipeline Orchestrator** - Stage sequencing, result aggregation, PipelineResult output
 - [x] **Phase 6: Reporting & Notification** - JUnit parsing, summary generation, email/Slack/console notifiers
-- [ ] **Phase 7: CI Wrappers** - Jenkinsfile with  Docker support, GitHub Actions workflow, dry-run/inspect/doctor commands
+- [x] **Phase 7: CI Wrappers** - Jenkinsfile with Docker support, GitHub Actions workflow, dry-run/inspect/doctor commands
 - [ ] **Phase 8: Test Suite & Polish** - Full pytest coverage, contract tests, README, final validation
 
 ## Phase Details
@@ -123,8 +123,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: Jenkins wrapper with Docker support + doctor command
-- [ ] 07-02: GitHub Actions wrapper with step summary + artifact upload
+- [x] 07-01: Jenkins wrapper with Docker support + doctor command
+- [x] 07-02: GitHub Actions wrapper with step summary + artifact upload
 
 ### Phase 8: Test Suite & Polish
 **Goal**: Complete test coverage, documentation, and final validation
@@ -154,5 +154,5 @@ Phases 1-4 can partially run in parallel (1 first, then 2/3/4 together). Phase 5
 | 4. Maven Backend | 1/1 | Completed | 2026-04-10 |
 | 5. Pipeline Orchestrator | 2/2 | Completed | 2026-04-10 |
 | 6. Reporting & Notification | 2/2 | Completed | 2026-04-10 |
-| 7. CI Wrappers | 0/2 | Not started | - |
+| 7. CI Wrappers | 2/2 | Completed | 2026-04-10 |
 | 8. Test Suite & Polish | 0/2 | Not started | - |
