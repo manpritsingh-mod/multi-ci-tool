@@ -51,7 +51,7 @@ pipeline {
                     export PATH="$HOME/.local/bin:$PATH"
                     
                     echo "Bootstrapping Python 3.10 user-space environment..."
-                    uv venv .venv --python 3.10
+                    uv venv .venv --python 3.10 --clear
                     
                     echo "Installing SDK..."
                     . .venv/bin/activate
@@ -74,28 +74,48 @@ pipeline {
         stage('Parse Results') {
             steps {
                 script {
-                    // Use Python to safely extract the 'overall' status without relying on Pipeline Utility Steps plugin
-                    def status = sh(script: '''
-                        export PATH="$HOME/.local/bin:$PATH"
-                        . .venv/bin/activate
-                        python -c "import json, sys; sys.stdout.write(json.load(open('ci-result.json'))['overall'].upper())"
-                    ''', returnStdout: true).trim()
+                    def resultJson = readFile(file: 'ci-result.json')
+                    def result = readJSON text: resultJson
 
-                    echo "Pipeline overall status evaluated: ${status}"
+                    echo "Pipeline overall status: ${result.overall}"
                     
-                    // Map SDK overall status to Jenkins build state
-                    if (status == 'PASS') {
+                    // Map overall status to Jenkins build state
+                    if (result.overall == 'pass' || result.overall == 'PASS') {
                         echo "✅ Build PASSED"
                         currentBuild.result = 'SUCCESS'
-                    } else if (status == 'WARN') {
+                    } else if (result.overall == 'warn' || result.overall == 'WARN') {
                         echo "⚠️ Build completed with WARNINGS"
                         unstable('Build completed with warnings')
-                    } else if (status == 'FAIL') {
+                    } else if (result.overall == 'fail' || result.overall == 'FAIL') {
                         echo "❌ Build FAILED"
                         currentBuild.result = 'FAILURE'
                     } else {
-                        echo "⚠️ Unknown status: ${status}"
+                        echo "⚠️ Unknown status: ${result.overall}"
                         unstable('Unknown build status')
+                    }
+
+                    // Print stage details
+                    echo "\n=== Stage Results ==="
+                    result.stages.each { stage ->
+                        echo "${stage.name}: ${stage.status} (${stage.duration_seconds}s)"
+                    }
+
+                    // Print test summary if available
+                    if (result.test_summary) {
+                        echo "\n=== Test Summary ==="
+                        echo "Total: ${result.test_summary.total}"
+                        echo "Passed: ${result.test_summary.passed}"
+                        echo "Failed: ${result.test_summary.failed}"
+                        echo "Skipped: ${result.test_summary.skipped}"
+                    }
+
+                    // Print lint summary if available
+                    if (result.lint_summary) {
+                        echo "\n=== Lint Summary ==="
+                        echo "Total Violations: ${result.lint_summary.total_violations}"
+                        echo "Errors: ${result.lint_summary.errors}"
+                        echo "Warnings: ${result.lint_summary.warnings}"
+                        echo "Infos: ${result.lint_summary.infos}"
                     }
                 }
             }
